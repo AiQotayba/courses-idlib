@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Courses",
+    "slug": "courses-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "courses",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
+    "android": { "adaptiveIcon": { "backgroundColor": "#0f172a" } }
+  }
+}

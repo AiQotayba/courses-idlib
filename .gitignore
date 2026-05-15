@@ -1,0 +1,12 @@
+node_modules
+.turbo
+dist
+.next
+out
+build
+*.log
+.env
+.env.local
+.expo
+web-build
+.DS_Store

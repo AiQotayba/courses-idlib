@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  text-rendering: optimizeLegibility;
+}
+
+/* تمرير أنيق للمناطق الأفقية في لوحة التحكم */
+.admin-scroll-x {
+  -ms-overflow-style: none;
+  scrollbar-width: thin;
+}
+.admin-scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.admin-scroll-x::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}

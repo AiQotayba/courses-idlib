@@ -9,7 +9,7 @@ import { NotificationsMenu } from '@/components/notifications-menu';
 const mainNav = [{ href: '/courses', label: 'الدورات' }] as const;
 
 const requestNav = {
-  href: '/request-course',
+  href: '/apply',
   label: 'لم تجد ما تبحث عنه؟',
 } as const;
 

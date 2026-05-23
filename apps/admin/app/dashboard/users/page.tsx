@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSearchParams } from 'next/navigation';
@@ -10,8 +10,25 @@ import type { z } from 'zod';
 import type { UserPublic } from '@repo/types';
 import { Button, Input, Label, Modal } from '@repo/ui';
 import { getAdminApi } from '@/lib/client-api';
+import { DataTable, type TableColumn } from '@/components/table/data-table';
 
-type List = { items: UserPublic[]; page: number; limit: number; total: number };
+const userColumns: TableColumn<UserPublic>[] = [
+  { key: 'fullName', label: 'الاسم' },
+  {
+    key: 'email',
+    label: 'البريد',
+    render: (v) => (
+      <span dir="ltr" className="text-slate-600">
+        {String(v)}
+      </span>
+    ),
+  },
+  {
+    key: 'role',
+    label: 'الدور',
+    render: (v) => roleLabel(String(v)),
+  },
+];
 type CreateForm = z.infer<typeof adminUserCreateSchema>;
 type UpdateForm = z.infer<typeof adminUserUpdateSchema>;
 
@@ -27,17 +44,8 @@ function AdminUsersPageContent() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<UserPublic | null>(null);
-  const [deleting, setDeleting] = useState<UserPublic | null>(null);
-
-  const list = useQuery({
-    queryKey: ['admin', 'users', q],
-    queryFn: async () => {
-      const api = getAdminApi();
-      const params = new URLSearchParams({ page: '1', limit: '100' });
-      if (q) params.set('q', q);
-      return api.get<List>(`/admin/users?${params}`);
-    },
-  });
+  const invalidateTable = () =>
+    qc.invalidateQueries({ queryKey: ['table-data', '/admin/users'] });
 
   const createForm = useForm<CreateForm>({
     resolver: zodResolver(adminUserCreateSchema),
@@ -66,7 +74,7 @@ function AdminUsersPageContent() {
       return api.post<UserPublic>('/admin/users', body);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      await invalidateTable();
       setCreateOpen(false);
       createForm.reset({ fullName: '', email: '', password: '', role: 'user' });
     },
@@ -80,7 +88,7 @@ function AdminUsersPageContent() {
       return api.put<UserPublic>(`/admin/users/${id}`, payload);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      await invalidateTable();
       setEditing(null);
     },
   });
@@ -90,86 +98,41 @@ function AdminUsersPageContent() {
       const api = getAdminApi();
       await api.delete(`/admin/users/${id}`);
     },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'users'] });
-      setDeleting(null);
-    },
   });
-
-  if (list.isLoading) return <p className="text-sm text-slate-600">جاري تحميل المستخدمين…</p>;
-  if (list.isError) return <p className="text-sm text-rose-600">تعذّر تحميل المستخدمين.</p>;
-
-  const items = list.data?.items ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">المستخدمون</h2>
-          <p className="text-sm text-slate-600">
-            إدارة الأدوار والصلاحيات.
-            {q ? (
-              <>
-                {' '}
-                <span className="text-slate-500">نتائج البحث عن «{q}».</span>
-              </>
-            ) : null}
-          </p>
-        </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
-          مستخدم جديد
-        </Button>
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">المستخدمون</h2>
+        <p className="text-sm text-slate-600">
+          إدارة الأدوار والصلاحيات.
+          {q ? (
+            <>
+              {' '}
+              <span className="text-slate-500">نتائج البحث عن «{q}».</span>
+            </>
+          ) : null}
+        </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-start text-xs font-semibold text-slate-500">
-            <tr>
-              <th className="px-4 py-3">الاسم</th>
-              <th className="px-4 py-3">البريد</th>
-              <th className="px-4 py-3">الدور</th>
-              <th className="px-4 py-3 text-end">إجراءات</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">
-                  لا توجد نتائج مطابقة.
-                </td>
-              </tr>
-            ) : (
-              items.map((u) => (
-                <tr key={u._id} className="hover:bg-slate-50/80">
-                  <td className="px-4 py-3 font-medium text-slate-900">{u.fullName}</td>
-                  <td className="px-4 py-3 text-slate-600" dir="ltr">
-                    {u.email}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{roleLabel(u.role)}</td>
-                  <td className="px-4 py-3 text-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="px-2 py-1 text-xs"
-                      onClick={() => setEditing(u)}
-                    >
-                      تعديل
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="px-2 py-1 text-xs text-rose-600"
-                      onClick={() => setDeleting(u)}
-                    >
-                      حذف
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable<UserPublic>
+        apiEndpoint="/admin/users"
+        columns={userColumns}
+        urlSearchKey="q"
+        searchPlaceholder="بحث بالاسم أو البريد…"
+        onAdd={() => setCreateOpen(true)}
+        addLabel="مستخدم جديد"
+        actions={{ onEdit: setEditing }}
+        deleteDescription={(u) => (
+          <>
+            إزالة <span className="font-semibold" dir="ltr">{u.email}</span>؟
+          </>
+        )}
+        onDeleteConfirm={async (u) => {
+          await deleteMut.mutateAsync(u._id);
+          await invalidateTable();
+        }}
+      />
 
       <Modal
         open={createOpen}
@@ -268,30 +231,6 @@ function AdminUsersPageContent() {
         </form>
       </Modal>
 
-      <Modal
-        open={!!deleting}
-        title="حذف المستخدم"
-        onClose={() => setDeleting(null)}
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setDeleting(null)}>
-              إلغاء
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={deleteMut.isPending}
-              onClick={() => deleting && deleteMut.mutate(deleting._id)}
-            >
-              {deleteMut.isPending ? 'جاري الحذف…' : 'حذف'}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-slate-600">
-          إزالة <span className="font-semibold text-slate-900" dir="ltr">{deleting?.email}</span>؟
-        </p>
-      </Modal>
     </div>
   );
 }

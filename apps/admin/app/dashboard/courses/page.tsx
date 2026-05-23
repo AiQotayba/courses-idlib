@@ -8,10 +8,37 @@ import type { z } from 'zod';
 import type { Category, Course } from '@repo/types';
 import { Button, Input, Label, Modal } from '@repo/ui';
 import { getAdminApi } from '@/lib/client-api';
+import { DataTable, type TableColumn } from '@/components/table/data-table';
 import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 
-type List = { items: Course[]; page: number; limit: number; total: number };
+const courseColumns: TableColumn<Course>[] = [
+  { key: 'title', label: 'العنوان' },
+  {
+    key: 'category',
+    label: 'التصنيف',
+    render: (_, row) => row.category?.name ?? '—',
+  },
+  {
+    key: 'price',
+    label: 'السعر',
+    render: (v) => (
+      <span dir="ltr" className="font-medium">
+        ${Number(v)}
+      </span>
+    ),
+  },
+  {
+    key: 'isPublished',
+    label: 'منشور',
+    render: (v) => (v ? 'نعم' : 'لا'),
+  },
+  {
+    key: 'featured',
+    label: 'مميز',
+    render: (v) => (v ? 'نعم' : 'لا'),
+  },
+];
 type CreateForm = z.infer<typeof courseCreateSchema>;
 type UpdateForm = z.infer<typeof courseUpdateSchema>;
 
@@ -19,15 +46,8 @@ export default function AdminCoursesPage() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
-  const [deleting, setDeleting] = useState<Course | null>(null);
-
-  const list = useQuery({
-    queryKey: ['admin', 'courses'],
-    queryFn: async () => {
-      const api = getAdminApi();
-      return api.get<List>('/admin/courses?page=1&limit=100');
-    },
-  });
+  const invalidateTable = () =>
+    qc.invalidateQueries({ queryKey: ['table-data', '/admin/courses'] });
 
   const categories = useQuery({
     queryKey: ['categories', 'all'],
@@ -74,7 +94,7 @@ export default function AdminCoursesPage() {
       return api.post<Course>('/admin/courses', body);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'courses'] });
+      await invalidateTable();
       setCreateOpen(false);
       createForm.reset({
         title: '',
@@ -94,7 +114,7 @@ export default function AdminCoursesPage() {
       return api.put<Course>(`/admin/courses/${id}`, body);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'courses'] });
+      await invalidateTable();
       setEditing(null);
     },
   });
@@ -105,73 +125,35 @@ export default function AdminCoursesPage() {
       await api.delete(`/admin/courses/${id}`);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'courses'] });
-      setDeleting(null);
+      await invalidateTable();
     },
   });
-
-  if (list.isLoading) return <p className="text-sm text-slate-600">جاري تحميل الدورات…</p>;
-  if (list.isError) return <p className="text-sm text-rose-600">تعذّر تحميل الدورات.</p>;
 
   const catOptions = categories.data ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">الدورات</h2>
-          <p className="text-sm text-slate-600">النشر والتسعير والتصنيف.</p>
-        </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
-          دورة جديدة
-        </Button>
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">الدورات</h2>
+        <p className="text-sm text-slate-600">النشر والتسعير والتصنيف.</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-start text-xs font-semibold text-slate-500">
-            <tr>
-              <th className="px-4 py-3">العنوان</th>
-              <th className="px-4 py-3">التصنيف</th>
-              <th className="px-4 py-3">السعر</th>
-              <th className="px-4 py-3">منشور</th>
-              <th className="px-4 py-3">مميز</th>
-              <th className="px-4 py-3 text-end">إجراءات</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {list.data?.items.map((c) => (
-              <tr key={c._id} className="hover:bg-slate-50/80">
-                <td className="px-4 py-3 font-medium text-slate-900">{c.title}</td>
-                <td className="px-4 py-3 text-slate-600">{c.category?.name ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-600" dir="ltr">
-                  ${c.price}
-                </td>
-                <td className="px-4 py-3 text-slate-600">{c.isPublished ? 'نعم' : 'لا'}</td>
-                <td className="px-4 py-3 text-slate-600">{c.featured ? 'نعم' : 'لا'}</td>
-                <td className="px-4 py-3 text-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="px-2 py-1 text-xs"
-                    onClick={() => setEditing(c)}
-                  >
-                    تعديل
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="px-2 py-1 text-xs text-rose-600"
-                    onClick={() => setDeleting(c)}
-                  >
-                    حذف
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable<Course>
+        apiEndpoint="/admin/courses"
+        columns={courseColumns}
+        searchPlaceholder="بحث بالعنوان…"
+        onAdd={() => setCreateOpen(true)}
+        addLabel="دورة جديدة"
+        actions={{ onEdit: setEditing }}
+        deleteDescription={(c) => (
+          <>
+            حذف <span className="font-semibold text-slate-900">{c.title}</span>؟
+          </>
+        )}
+        onDeleteConfirm={async (c) => {
+          await deleteMut.mutateAsync(c._id);
+        }}
+      />
 
       <Modal
         open={createOpen}
@@ -219,30 +201,6 @@ export default function AdminCoursesPage() {
         <CourseFields form={editForm} categories={catOptions} />
       </Modal>
 
-      <Modal
-        open={!!deleting}
-        title="حذف الدورة"
-        onClose={() => setDeleting(null)}
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setDeleting(null)}>
-              إلغاء
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={deleteMut.isPending}
-              onClick={() => deleting && deleteMut.mutate(deleting._id)}
-            >
-              {deleteMut.isPending ? 'جاري الحذف…' : 'حذف'}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-slate-600">
-          حذف <span className="font-semibold text-slate-900">{deleting?.title}</span>؟
-        </p>
-      </Modal>
     </div>
   );
 }

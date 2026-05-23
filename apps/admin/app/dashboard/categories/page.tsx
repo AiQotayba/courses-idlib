@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { categoryCreateSchema, categoryUpdateSchema } from '@repo/validation';
@@ -8,9 +8,21 @@ import type { z } from 'zod';
 import type { Category } from '@repo/types';
 import { Button, Input, Label, Modal } from '@repo/ui';
 import { getAdminApi } from '@/lib/client-api';
+import { DataTable, type TableColumn } from '@/components/table/data-table';
 import { useEffect, useState } from 'react';
 
-type List = { items: Category[]; page: number; limit: number; total: number };
+const categoryColumns: TableColumn<Category>[] = [
+  { key: 'name', label: 'الاسم' },
+  {
+    key: 'slug',
+    label: 'المعرّف (slug)',
+    render: (v) => (
+      <span dir="ltr" className="text-slate-600">
+        {String(v)}
+      </span>
+    ),
+  },
+];
 type CreateForm = z.infer<typeof categoryCreateSchema>;
 type UpdateForm = z.infer<typeof categoryUpdateSchema>;
 
@@ -18,15 +30,9 @@ export default function AdminCategoriesPage() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
-  const [deleting, setDeleting] = useState<Category | null>(null);
 
-  const list = useQuery({
-    queryKey: ['admin', 'categories'],
-    queryFn: async () => {
-      const api = getAdminApi();
-      return api.get<List>('/admin/categories?page=1&limit=100');
-    },
-  });
+  const invalidateTable = () =>
+    qc.invalidateQueries({ queryKey: ['table-data', '/admin/categories'] });
 
   const createForm = useForm<CreateForm>({
     resolver: zodResolver(categoryCreateSchema),
@@ -53,7 +59,7 @@ export default function AdminCategoriesPage() {
       return api.post<Category>('/admin/categories', body);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'categories'] });
+      await invalidateTable();
       setCreateOpen(false);
       createForm.reset({ name: '', slug: '', image: '' });
     },
@@ -65,7 +71,7 @@ export default function AdminCategoriesPage() {
       return api.put<Category>(`/admin/categories/${id}`, body);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'categories'] });
+      await invalidateTable();
       setEditing(null);
     },
   });
@@ -76,70 +82,33 @@ export default function AdminCategoriesPage() {
       await api.delete(`/admin/categories/${id}`);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'categories'] });
-      setDeleting(null);
+      await invalidateTable();
     },
   });
 
-  if (list.isLoading) {
-    return <p className="text-sm text-slate-600">جاري تحميل التصنيفات…</p>;
-  }
-
-  if (list.isError) {
-    return <p className="text-sm text-rose-600">تعذّر تحميل التصنيفات.</p>;
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">التصنيفات</h2>
-          <p className="text-sm text-slate-600">إنشاء التصنيفات أو تعديلها أو حذفها.</p>
-        </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
-          تصنيف جديد
-        </Button>
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">التصنيفات</h2>
+        <p className="text-sm text-slate-600">إنشاء التصنيفات أو تعديلها أو حذفها.</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-start text-xs font-semibold text-slate-500">
-            <tr>
-              <th className="px-4 py-3">الاسم</th>
-              <th className="px-4 py-3">المعرّف (slug)</th>
-              <th className="px-4 py-3 text-end">إجراءات</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {list.data?.items.map((c) => (
-              <tr key={c._id} className="hover:bg-slate-50/80">
-                <td className="px-4 py-3 font-medium text-slate-900">{c.name}</td>
-                <td className="px-4 py-3 text-slate-600" dir="ltr">
-                  {c.slug}
-                </td>
-                <td className="px-4 py-3 text-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="px-2 py-1 text-xs"
-                    onClick={() => setEditing(c)}
-                  >
-                    تعديل
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="px-2 py-1 text-xs text-rose-600 hover:text-rose-700"
-                    onClick={() => setDeleting(c)}
-                  >
-                    حذف
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable<Category>
+        apiEndpoint="/admin/categories"
+        columns={categoryColumns}
+        searchPlaceholder="بحث بالاسم أو المعرّف…"
+        onAdd={() => setCreateOpen(true)}
+        addLabel="تصنيف جديد"
+        actions={{ onEdit: setEditing }}
+        deleteDescription={(c) => (
+          <>
+            حذف <span className="font-semibold text-slate-900">{c.name}</span>؟
+          </>
+        )}
+        onDeleteConfirm={async (c) => {
+          await deleteMut.mutateAsync(c._id);
+        }}
+      />
 
       <Modal
         open={createOpen}
@@ -223,31 +192,6 @@ export default function AdminCategoriesPage() {
         </form>
       </Modal>
 
-      <Modal
-        open={!!deleting}
-        title="حذف التصنيف"
-        onClose={() => setDeleting(null)}
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setDeleting(null)}>
-              إلغاء
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={deleteMut.isPending}
-              onClick={() => deleting && deleteMut.mutate(deleting._id)}
-            >
-              {deleteMut.isPending ? 'جاري الحذف…' : 'حذف'}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-slate-600">
-          حذف <span className="font-semibold text-slate-900">{deleting?.name}</span>؟ لا يمكن
-          التراجع إن لم تكن هناك دورات مرتبطة.
-        </p>
-      </Modal>
     </div>
   );
 }

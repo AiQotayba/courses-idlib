@@ -19,7 +19,7 @@ export function RequestCourseForm({ categories }: { categories: Cat[] }) {
     setStatus('loading');
     setMessage(null);
     try {
-      const res = await fetch(`${base}/course-requests`, {
+      const res = await fetch(`${base}/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

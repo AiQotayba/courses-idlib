@@ -371,7 +371,7 @@ adminRouter.delete('/courses/:id', async (req, res, next) => {
   }
 });
 
-adminRouter.get('/course-requests', validateQuery(adminListQuery), async (req, res, next) => {
+adminRouter.get('/apply', validateQuery(adminListQuery), async (req, res, next) => {
   try {
     const q = (req as typeof req & { validatedQuery: z.infer<typeof adminListQuery> })
       .validatedQuery;
@@ -399,7 +399,7 @@ adminRouter.get('/course-requests', validateQuery(adminListQuery), async (req, r
   }
 });
 
-adminRouter.delete('/course-requests/:id', async (req, res, next) => {
+adminRouter.delete('/apply/:id', async (req, res, next) => {
   try {
     const doc = await CourseRequestModel.findByIdAndDelete(req.params.id).lean();
     if (!doc) {

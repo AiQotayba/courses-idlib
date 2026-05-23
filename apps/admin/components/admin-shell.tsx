@@ -26,7 +26,7 @@ const nav = [
   { href: '/dashboard/users', label: 'المستخدمون', icon: IconUsers, kind: 'prefix' as const },
   { href: '/dashboard/courses', label: 'الدورات', icon: IconBook, kind: 'prefix' as const },
   { href: '/dashboard/categories', label: 'التصنيفات', icon: IconFolder, kind: 'prefix' as const },
-  { href: '/dashboard/course-requests', label: 'طلبات الدورات', icon: IconInbox, kind: 'prefix' as const },
+  { href: '/dashboard/apply', label: 'طلبات الدورات', icon: IconInbox, kind: 'prefix' as const },
   { href: '/dashboard#stats', label: 'الإحصاءات', icon: IconChart, kind: 'stats' as const },
 ] as const;
 
@@ -44,7 +44,7 @@ function navActive(
 }
 
 function pageTitle(pathname: string): string {
-  if (pathname.startsWith('/dashboard/course-requests')) return 'طلبات الدورات';
+  if (pathname.startsWith('/dashboard/apply')) return 'طلبات الدورات';
   if (pathname.startsWith('/dashboard/users')) return 'المستخدمون';
   if (pathname.startsWith('/dashboard/courses')) return 'الدورات';
   if (pathname.startsWith('/dashboard/categories')) return 'التصنيفات';

@@ -29,7 +29,7 @@ export function createApp(): express.Application {
   app.use('/users', usersRouter);
   app.use('/courses', coursesRouter);
   app.use('/categories', categoriesRouter);
-  app.use('/course-requests', courseRequestsRouter);
+  app.use('/apply', courseRequestsRouter);
   app.use('/admin', adminRouter);
 
   app.use(errorHandler);
